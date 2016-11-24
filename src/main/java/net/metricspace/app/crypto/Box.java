@@ -37,7 +37,43 @@ public class Box<T extends Representable>
      * ChaCha20 cipher cannot be safely reused with multiple
      * ciphertexts.
      */
-    public static class Key implements Representable {
+    public static interface Key extends Representable {
+        /**
+         * Get a {@code org.bouncycastle.crypto.StreamCipher} instance
+         * using this {@code Key} for encryption.  Note that this may
+         * only be used to encrypt a single payload.
+         *
+         * @return A {@code org.bouncycastle.crypto.StreamCipher}
+         *         instance for encrypting a single
+         *         payload.
+         */
+        public StreamCipher encryptCipher();
+
+        /**
+         * Get a {@code org.bouncycastle.crypto.StreamCipher} instance
+         * using this {@code Key} for decryption.  Note that this may
+         * only be used to decrypt a single payload.
+         *
+         * @return A {@code org.bouncycastle.crypto.StreamCipher}
+         *         instance for encrypting a single
+         *         payload.
+         */
+        public StreamCipher decryptCipher();
+
+        /**
+         * Get a {@code org.bouncycastle.crypto.Mac} instance using
+         * this {@code Key}.
+         *
+         * @return A {@code org.bouncycastle.crypto.Mac} instance
+         *         initialized with this {@code Key}.
+         */
+        public Mac mac();
+    }
+
+    /**
+     * The underlying implementation of {@code Key}.
+     */
+    private static class KeyImpl implements Key {
         private static final int CIPHER_KEY_OFFSET = 0;
         private static final int CIPHER_KEY_SIZE = 32;
         private static final int MAC_KEY_OFFSET =
@@ -56,7 +92,7 @@ public class Box<T extends Representable>
          * @param in The stream from which to read.
          * @throws java.io.IOException If an IO error occurs.
          */
-        public Key(final InputStream in)
+        public KeyImpl(final InputStream in)
             throws IOException {
             read(in);
         }
@@ -67,7 +103,7 @@ public class Box<T extends Representable>
          *
          * @param rand The random source to use.
          */
-        public Key(final SecureRandom rand) {
+        public KeyImpl(final SecureRandom rand) {
             rand.nextBytes(data);
         }
 
@@ -110,13 +146,7 @@ public class Box<T extends Representable>
         }
 
         /**
-         * Get a {@code org.bouncycastle.crypto.StreamCipher} instance
-         * using this {@code Key} for encryption.  Note that this may
-         * only be used to encrypt a single payload.
-         *
-         * @return A {@code org.bouncycastle.crypto.StreamCipher}
-         *         instance for encrypting a single
-         *         payload.
+         * {@inheritDoc}
          */
         public StreamCipher encryptCipher() {
             final StreamCipher out = new ChaCha7539Engine();
@@ -127,13 +157,7 @@ public class Box<T extends Representable>
         }
 
         /**
-         * Get a {@code org.bouncycastle.crypto.StreamCipher} instance
-         * using this {@code Key} for decryption.  Note that this may
-         * only be used to decrypt a single payload.
-         *
-         * @return A {@code org.bouncycastle.crypto.StreamCipher}
-         *         instance for encrypting a single
-         *         payload.
+         * {@inheritDoc}
          */
         public StreamCipher decryptCipher() {
             final StreamCipher out = new ChaCha7539Engine();
@@ -144,11 +168,7 @@ public class Box<T extends Representable>
         }
 
         /**
-         * Get a {@code org.bouncycastle.crypto.Mac} instance using
-         * this {@code Key}.
-         *
-         * @return A {@code org.bouncycastle.crypto.Mac} instance
-         *         initialized with this {@code Key}.
+         * {@inheritDoc}
          */
         public Mac mac() {
             final Mac out = new Poly1305();
@@ -189,7 +209,7 @@ public class Box<T extends Representable>
      * @throws java.io.IOException If an IO error occurs.
      */
     public Box(final InputStream in)
-        throws CryptoException, IOException {
+        throws IOException {
         this(in, in.available());
     }
 
@@ -207,7 +227,7 @@ public class Box<T extends Representable>
                     final T data)
         throws IOException, IllegalStateException {
         if (ciphertext != null) {
-            final Key key = new Key(rand);
+            final KeyImpl key = new KeyImpl(rand);
             final byte[] plaintext = data.bytes();
             final Mac macalg = key.mac();
             final StreamCipher cipher = key.encryptCipher();
@@ -242,7 +262,7 @@ public class Box<T extends Representable>
      */
     public T unlock(final Key key,
                     Function<InputStream, T> read)
-        throws CryptoException, IOException, IllegalStateException {
+        throws MACFailureException, IOException, IllegalStateException {
         if (ciphertext != null) {
             final int len = ciphertext.length;
             final Mac macalg = key.mac();
