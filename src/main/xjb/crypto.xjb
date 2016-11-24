@@ -8,11 +8,11 @@
 
   <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
                 node="//xs:complexType [@name='Box']">
-    <jxb:class name="AbstractBox" implClass="net.metricspace.app.crypto.Box"/>
+    <jxb:class name="BoxPayload" implClass="net.metricspace.app.crypto.Box"/>
   </jxb:bindings>
 
   <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
                 node="//xs:complexType [@name='Envelope']">
-    <jxb:class name="AbstractEnvelope"/>
+    <jxb:class name="EnvelopePayload"/>
   </jxb:bindings>
 </jxb:bindings>
