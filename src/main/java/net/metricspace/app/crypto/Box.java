@@ -25,13 +25,11 @@ import net.metricspace.app.data.Representable;
  * single-use keys.  The {@code Box} API is specifically designed to
  * prevent the reuse of {@code Key}s.
  */
-public class Box<T extends Representable> extends BoxPayload
+public class Box<T extends Representable>
+    extends BoxPayload
     implements Representable {
 
-    private static final int MAC_OFFSET = 0;
     private static final int MAC_SIZE = 16;
-    private static final int TEXT_OFFSET = MAC_OFFSET + MAC_SIZE;
-    private static final int MIN_CIPHERTEXT_SIZE = TEXT_OFFSET;
 
     /**
      * Key material for a {@code Box}.  These keys are not reusable
@@ -164,7 +162,9 @@ public class Box<T extends Representable> extends BoxPayload
     /**
      * Create an empty {@code Box}, containing nothing.
      */
-    public Box() {}
+    public Box() {
+        this.mac = new byte[MAC_SIZE];
+    }
 
     /**
      * Read in a {@code Box} from a specified length of the input stream.
@@ -175,14 +175,11 @@ public class Box<T extends Representable> extends BoxPayload
      */
     public Box(final InputStream in,
                final int len)
-        throws CryptoException, IOException {
+        throws IOException {
+        this();
 
-        if(len > MIN_CIPHERTEXT_SIZE) {
-            this.ciphertext = new byte[len];
-            read(in);
-        } else {
-            throw new InvalidFormatException();
-        }
+        this.ciphertext = new byte[len];
+        read(in);
     }
 
     /**
@@ -212,14 +209,14 @@ public class Box<T extends Representable> extends BoxPayload
         if (ciphertext != null) {
             final Key key = new Key(rand);
             final byte[] plaintext = data.bytes();
-            final Mac mac = key.mac();
+            final Mac macalg = key.mac();
             final StreamCipher cipher = key.encryptCipher();
             final int len = plaintext.length;
 
-            ciphertext = new byte[len + MAC_SIZE];
-            cipher.processBytes(plaintext, 0, len, ciphertext, TEXT_OFFSET);
-            mac.update(ciphertext, TEXT_OFFSET, len);
-            mac.doFinal(ciphertext, MAC_OFFSET);
+            ciphertext = new byte[len];
+            cipher.processBytes(plaintext, 0, len, ciphertext, 0);
+            macalg.update(ciphertext, 0, len);
+            macalg.doFinal(mac, 0);
 
             return key;
         } else {
@@ -247,19 +244,18 @@ public class Box<T extends Representable> extends BoxPayload
                     Function<InputStream, T> read)
         throws CryptoException, IOException, IllegalStateException {
         if (ciphertext != null) {
-            final int len = ciphertext.length - MAC_SIZE;
-            final Mac mac = key.mac();
-            final byte[] expected = Arrays.copyOf(ciphertext, MAC_SIZE);
+            final int len = ciphertext.length;
+            final Mac macalg = key.mac();
             final byte[] actual = new byte[MAC_SIZE];
 
-            mac.update(ciphertext, TEXT_OFFSET, len);
-            mac.doFinal(actual, MAC_OFFSET);
+            macalg.update(ciphertext, 0, len);
+            macalg.doFinal(actual, 0);
 
-            if (Arrays.constantTimeAreEqual(expected, actual)) {
+            if (Arrays.constantTimeAreEqual(mac, actual)) {
                 final byte[] plaintext = new byte[len];
                 final StreamCipher cipher = key.decryptCipher();
 
-                cipher.processBytes(ciphertext, TEXT_OFFSET, len, plaintext, 0);
+                cipher.processBytes(ciphertext, 0, len, plaintext, 0);
 
                 try(final ByteArrayInputStream in =
                     new ByteArrayInputStream(plaintext)) {
@@ -281,6 +277,7 @@ public class Box<T extends Representable> extends BoxPayload
      */
     protected void read(final InputStream in)
         throws IOException {
+        in.read(mac);
         in.read(ciphertext);
     }
 
@@ -292,6 +289,7 @@ public class Box<T extends Representable> extends BoxPayload
      */
     public void write(final OutputStream out)
         throws IOException {
+        out.write(mac);
         out.write(ciphertext);
     }
 }

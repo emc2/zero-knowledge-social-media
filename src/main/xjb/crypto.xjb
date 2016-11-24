@@ -13,6 +13,6 @@
 
   <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
                 node="//xs:complexType [@name='Envelope']">
-    <jxb:class name="EnvelopePayload"/>
+    <jxb:class name="EnvelopePayload" implClass="net.metricspace.app.crypto.Envelope"/>
   </jxb:bindings>
 </jxb:bindings>

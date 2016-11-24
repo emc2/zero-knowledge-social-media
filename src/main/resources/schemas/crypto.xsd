@@ -4,6 +4,7 @@
 
   <xsd:complexType name="Box">
     <xsd:sequence>
+      <xsd:element name="mac" type="xsd:base64Binary"/>
       <xsd:element name="ciphertext" type="xsd:base64Binary"/>
     </xsd:sequence>
   </xsd:complexType>
