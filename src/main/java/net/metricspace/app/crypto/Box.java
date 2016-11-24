@@ -37,7 +37,7 @@ public class Box<T extends Representable>
      * ChaCha20 cipher cannot be safely reused with multiple
      * ciphertexts.
      */
-    public static interface Key extends Representable {
+    public static abstract class Key implements Representable {
         /**
          * Get a {@code org.bouncycastle.crypto.StreamCipher} instance
          * using this {@code Key} for encryption.  Note that this may
@@ -47,7 +47,7 @@ public class Box<T extends Representable>
          *         instance for encrypting a single
          *         payload.
          */
-        public StreamCipher encryptCipher();
+        protected abstract StreamCipher encryptCipher();
 
         /**
          * Get a {@code org.bouncycastle.crypto.StreamCipher} instance
@@ -58,7 +58,7 @@ public class Box<T extends Representable>
          *         instance for encrypting a single
          *         payload.
          */
-        public StreamCipher decryptCipher();
+        protected abstract StreamCipher decryptCipher();
 
         /**
          * Get a {@code org.bouncycastle.crypto.Mac} instance using
@@ -67,13 +67,13 @@ public class Box<T extends Representable>
          * @return A {@code org.bouncycastle.crypto.Mac} instance
          *         initialized with this {@code Key}.
          */
-        public Mac mac();
+        protected abstract Mac mac();
     }
 
     /**
      * The underlying implementation of {@code Key}.
      */
-    private static class KeyImpl implements Key {
+    private static class KeyImpl extends Key {
         private static final int CIPHER_KEY_OFFSET = 0;
         private static final int CIPHER_KEY_SIZE = 32;
         private static final int MAC_KEY_OFFSET =
