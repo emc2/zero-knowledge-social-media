@@ -20,8 +20,10 @@ import net.metricspace.app.crypto.jaxb.BoxPayload;
 import net.metricspace.app.data.Representable;
 
 /**
- * Authenticated symmetric encryption primitive.  Boxes are a wrapper
- * for symmetric encryption with authentication.
+ * Authenticated symmetric encryption primitive.  {@code Box}es are a
+ * wrapper for symmetric encryption with authentication with
+ * single-use keys.  The {@code Box} API is specifically designed to
+ * prevent the reuse of {@code Key}s.
  */
 public class Box<T extends Representable> extends BoxPayload
     implements Representable {
@@ -160,8 +162,7 @@ public class Box<T extends Representable> extends BoxPayload
     }
 
     /**
-     * Default constructor, used by {@code
-     * net.metricspace.crypto.jaxb.ObjectFactory}.
+     * Create an empty {@code Box}, containing nothing.
      */
     public Box() {}
 
@@ -203,22 +204,27 @@ public class Box<T extends Representable> extends BoxPayload
      * @param data The data to lock in the {@code Box}.
      * @return The {@code Key} which unlocks this {@code Box}.
      * @throws java.io.IOException If an IO error occurs.
+     * @throws java.lang.IllegalStateException If the {@code Box} is not empty.
      */
     public Key lock(final SecureRandom rand,
                     final T data)
-        throws IOException {
-        final Key key = new Key(rand);
-        final byte[] plaintext = data.bytes();
-        final Mac mac = key.mac();
-        final StreamCipher cipher = key.encryptCipher();
-        final int len = plaintext.length;
+        throws IOException, IllegalStateException {
+        if (ciphertext != null) {
+            final Key key = new Key(rand);
+            final byte[] plaintext = data.bytes();
+            final Mac mac = key.mac();
+            final StreamCipher cipher = key.encryptCipher();
+            final int len = plaintext.length;
 
-        ciphertext = new byte[len + MAC_SIZE];
-        cipher.processBytes(plaintext, 0, len, ciphertext, TEXT_OFFSET);
-        mac.update(ciphertext, TEXT_OFFSET, len);
-        mac.doFinal(ciphertext, MAC_OFFSET);
+            ciphertext = new byte[len + MAC_SIZE];
+            cipher.processBytes(plaintext, 0, len, ciphertext, TEXT_OFFSET);
+            mac.update(ciphertext, TEXT_OFFSET, len);
+            mac.doFinal(ciphertext, MAC_OFFSET);
 
-        return key;
+            return key;
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -232,32 +238,38 @@ public class Box<T extends Representable> extends BoxPayload
      * @param read The {@code java.util.function.Function} to use to
      *             decode the binary data.
      * @return The decrypted {@code T}.
-     * @throws MACFailureException If message authentication fails.
+     * @throws net.metricspace.app.crypto.MACFailureException
+               If message authentication fails.
      * @throws java.io.IOException If an IO error occurs.
+     * @throws java.lang.IllegalStateException If the {@code Box} is empty.
      */
     public T unlock(final Key key,
                     Function<InputStream, T> read)
-        throws CryptoException, IOException {
-        final int len = ciphertext.length - MAC_SIZE;
-        final Mac mac = key.mac();
-        final byte[] expected = Arrays.copyOf(ciphertext, MAC_SIZE);
-        final byte[] actual = new byte[MAC_SIZE];
+        throws CryptoException, IOException, IllegalStateException {
+        if (ciphertext != null) {
+            final int len = ciphertext.length - MAC_SIZE;
+            final Mac mac = key.mac();
+            final byte[] expected = Arrays.copyOf(ciphertext, MAC_SIZE);
+            final byte[] actual = new byte[MAC_SIZE];
 
-        mac.update(ciphertext, TEXT_OFFSET, len);
-        mac.doFinal(actual, MAC_OFFSET);
+            mac.update(ciphertext, TEXT_OFFSET, len);
+            mac.doFinal(actual, MAC_OFFSET);
 
-        if (Arrays.constantTimeAreEqual(expected, actual)) {
-            final byte[] plaintext = new byte[len];
-            final StreamCipher cipher = key.decryptCipher();
+            if (Arrays.constantTimeAreEqual(expected, actual)) {
+                final byte[] plaintext = new byte[len];
+                final StreamCipher cipher = key.decryptCipher();
 
-            cipher.processBytes(ciphertext, TEXT_OFFSET, len, plaintext, 0);
+                cipher.processBytes(ciphertext, TEXT_OFFSET, len, plaintext, 0);
 
-            try(final ByteArrayInputStream in =
-                new ByteArrayInputStream(plaintext)) {
-                return read.apply(in);
+                try(final ByteArrayInputStream in =
+                    new ByteArrayInputStream(plaintext)) {
+                    return read.apply(in);
+                }
+            } else {
+                throw new MACFailureException();
             }
         } else {
-            throw new MACFailureException();
+            throw new IllegalStateException();
         }
     }
 
@@ -282,5 +294,4 @@ public class Box<T extends Representable> extends BoxPayload
         throws IOException {
         out.write(ciphertext);
     }
-
 }
