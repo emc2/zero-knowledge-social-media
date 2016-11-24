@@ -26,14 +26,14 @@ public class AppController extends WebMvcConfigurerAdapter {
 
     @RequestMapping(method = RequestMethod.GET)
     public String getRoot(final Model model) {
-        logger.info("Handling GET request for /");
+        logger.debug("Handling GET request for /");
 
         return "login";
     }
 
     @GetMapping("/login")
     public String getLogin(final LoginForm form) {
-        logger.info("Handling GET request for /login");
+        logger.debug("Handling GET request for /login");
 
         return "login";
     }
@@ -42,15 +42,15 @@ public class AppController extends WebMvcConfigurerAdapter {
     public String postLogin(@Valid final LoginForm form,
                             final BindingResult binding,
                             final Model model) {
-        logger.info("Handling POST request for /");
-        logger.info("Binding: " + binding);
+        logger.debug("Handling POST request for /");
+        logger.debug("Binding: " + binding);
 
         if (binding.hasErrors()) {
-            logger.info("Errors detected");
+            logger.debug("Errors detected");
 
             return "login";
         } else {
-            logger.info("No errors detected");
+            logger.debug("No errors detected");
             model.addAttribute("username", form.getUsername());
 
             return "password";
@@ -59,7 +59,7 @@ public class AppController extends WebMvcConfigurerAdapter {
 
     @GetMapping("/password")
     public String getPassword(final Model model) {
-        logger.info("Handling GET request for /password");
+        logger.debug("Handling GET request for /password");
 
         return "password";
     }
