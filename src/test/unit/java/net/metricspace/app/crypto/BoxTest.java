@@ -126,4 +126,22 @@ public class BoxTest {
 
         Assert.assertEquals(expected, actual);
     }
+
+    @Test
+    public void testLockWriteExtraReadUnlock()
+        throws IOException,
+               IntegrityCheckException {
+        final TestData expected =
+            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
+        final Box<TestData> box = new Box<>();
+        final Box.Key key = box.lock(new SecureRandom(), expected);
+        final byte[] boxbytes = box.bytes();
+        final byte[] extrabytes = Arrays.copyOf(boxbytes, boxbytes.length + 4);
+        final Box<TestData> newbox =
+            new Box<>(new ByteArrayInputStream(boxbytes),
+                      box.ciphertextSize());
+        final TestData actual = newbox.unlock(key, TestData::read);
+
+        Assert.assertEquals(expected, actual);
+    }
 }

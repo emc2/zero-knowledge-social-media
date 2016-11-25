@@ -296,6 +296,34 @@ public class Box<T extends Representable>
     }
 
     /**
+     * Get the number of bytes of ciphertext.
+     *
+     * @return The length of the ciphertext in bytes.
+     * @throws IllegalStateException If the {@code Box} is empty.
+     */
+    public int ciphertextSize() {
+        if (ciphertext != null) {
+            return ciphertext.length;
+        } else {
+            throw new IllegalStateException("Box is empty");
+        }
+    }
+
+    /**
+     * Get the number of bytes of the MAC.
+     *
+     * @return The length of the MAC in bytes.
+     * @throws IllegalStateException If the {@code Box} is empty.
+     */
+    public int macSize() {
+        if (mac != null) {
+            return mac.length;
+        } else {
+            throw new IllegalStateException("Box is empty");
+        }
+    }
+
+    /**
      * Read in raw ciphertext.
      *
      * @param in The stream from which to read.
