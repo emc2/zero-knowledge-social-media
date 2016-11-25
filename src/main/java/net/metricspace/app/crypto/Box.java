@@ -32,13 +32,12 @@ public class Box<T extends Representable>
     private static final int MAC_SIZE = 16;
 
     /**
-     * Key material for a {@code Box}.  These keys are not reusable
+     * Key material for a {@code Box}.  These keys are <em>not</em> reusable
      * with multiple {@code Box}es; both Poly1305 as well as nonces for the
-     * ChaCha20 cipher cannot be safely reused with multiple
-     * ciphertexts.
+     * ChaCha20 cipher cannot be safely reused.
      */
     public static final class Key
-        implements Representale {
+        implements Representable {
         private static final int CIPHER_KEY_OFFSET = 0;
         private static final int CIPHER_KEY_SIZE = 32;
         private static final int MAC_KEY_OFFSET =
@@ -68,20 +67,21 @@ public class Box<T extends Representable>
          *
          * @param rand The random source to use.
          */
-        protected Key(final SecureRandom rand) {
+        Key(final SecureRandom rand) {
             rand.nextBytes(data);
         }
 
         /**
          * {@inheritDoc}
          */
-        protected void read(final InputStream in) throws IOException {
+        void read(final InputStream in) throws IOException {
             in.read(data);
         }
 
         /**
          * {@inheritDoc}
          */
+        @Override
         public void write(final OutputStream out) throws IOException {
             out.write(data);
         }
@@ -119,7 +119,7 @@ public class Box<T extends Representable>
          *         instance for encrypting a single
          *         payload.
          */
-        protected StreamCipher encryptCipher() {
+        StreamCipher encryptCipher() {
             final StreamCipher out = new ChaCha7539Engine();
 
             out.init(true, cipherParameters());
@@ -136,7 +136,7 @@ public class Box<T extends Representable>
          *         instance for encrypting a single
          *         payload.
          */
-        protected StreamCipher decryptCipher() {
+        StreamCipher decryptCipher() {
             final StreamCipher out = new ChaCha7539Engine();
 
             out.init(false, cipherParameters());
@@ -151,7 +151,7 @@ public class Box<T extends Representable>
          * @return A {@code org.bouncycastle.crypto.Mac} instance
          *         initialized with this {@code Key}.
          */
-        protected Mac mac() {
+        Mac mac() {
             final Mac out = new Poly1305();
 
             out.init(macParameters());
@@ -206,21 +206,28 @@ public class Box<T extends Representable>
      */
     public Key lock(final SecureRandom rand,
                     final T data)
-        throws IOException, IllegalStateException {
-        if (ciphertext != null) {
+        throws IOException,
+               IllegalStateException {
+        // Check that the Box is empty
+        if (ciphertext == null) {
+            // Get the algorithms
             final Key key = new Key(rand);
-            final byte[] plaintext = data.bytes();
             final Mac macalg = key.mac();
             final StreamCipher cipher = key.encryptCipher();
+            // Convert the data to plaintext bytes
+            final byte[] plaintext = data.bytes();
             final int len = plaintext.length;
 
+            // Encrypt the plaintext
             ciphertext = new byte[len];
             cipher.processBytes(plaintext, 0, len, ciphertext, 0);
+            // Calculate the MAC code
             macalg.update(ciphertext, 0, len);
             macalg.doFinal(mac, 0);
 
             return key;
         } else {
+            // Throw an exception if the box already contains something
             throw new IllegalStateException();
         }
     }
@@ -230,42 +237,51 @@ public class Box<T extends Representable>
      * unlock a {@code Box} using the given {@code Key}.  If the wrong
      * {@code Key} is given, or if the message was tampered with in
      * some way, then the message authentication will fail, resulting
-     * in a {@code MACFailureException} being thrown.
+     * in a {@code IntegrityCheckException} being thrown.
      *
      * @param key The {@code Key} to use for decryption.
      * @param read The {@code java.util.function.Function} to use to
      *             decode the binary data.
      * @return The decrypted {@code T}.
-     * @throws net.metricspace.app.crypto.MACFailureException
+     * @throws net.metricspace.app.crypto.IntegrityCheckException
                If message authentication fails.
      * @throws java.io.IOException If an IO error occurs.
      * @throws java.lang.IllegalStateException If the {@code Box} is empty.
      */
     public T unlock(final Key key,
                     Function<InputStream, T> read)
-        throws MACFailureException, IOException, IllegalStateException {
+        throws IntegrityCheckException,
+               IOException,
+               IllegalStateException {
+        // Check that the box contains something
         if (ciphertext != null) {
-            final int len = ciphertext.length;
+            // First check the MAC
             final Mac macalg = key.mac();
+            final int len = ciphertext.length;
             final byte[] actual = new byte[MAC_SIZE];
 
             macalg.update(ciphertext, 0, len);
             macalg.doFinal(actual, 0);
 
+            // Check for equality
             if (Arrays.constantTimeAreEqual(mac, actual)) {
+                // If the MAC checks out, decrypt the ciphertext
                 final byte[] plaintext = new byte[len];
                 final StreamCipher cipher = key.decryptCipher();
 
                 cipher.processBytes(ciphertext, 0, len, plaintext, 0);
 
+                // Now convert the plaintext bytes back into an object
                 try(final ByteArrayInputStream in =
                     new ByteArrayInputStream(plaintext)) {
                     return read.apply(in);
                 }
             } else {
-                throw new MACFailureException();
+                // If the MAC check fails, throw an exception
+                throw new IntegrityCheckException();
             }
         } else {
+            // If the box is empty, throw an exception
             throw new IllegalStateException();
         }
     }
@@ -286,8 +302,9 @@ public class Box<T extends Representable>
      * Write out raw ciphertext.
      *
      * @param out The stream to which to write.
-     * @throws java.io.IOException If an error occurs reading from {@code in}.
+     * @throws java.io.IOException If an error occurs writing to {@code out}.
      */
+    @Override
     public void write(final OutputStream out)
         throws IOException {
         out.write(mac);
