@@ -17,9 +17,16 @@
     <bouncycastle.version>1.55</bouncycastle.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <java.version>1.8</java.version>
+    <test.unit.srcs>${project.basedir}/src/test/unit/java</test.unit.srcs>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
+      <version>6.1.1</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>javax.validation</groupId>
       <artifactId>validation-api</artifactId>
@@ -76,7 +83,22 @@
   </repositories>
 
   <build>
+    <testSourceDirectory>${test.unit.srcs}</testSourceDirectory>
     <plugins>
+      <!--
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.7</version>
+        <executions>
+          <execution>
+            <id>add-source</id>
+            <phase>generate-sources</phase>
+          </execution>
+        </executions>
+        </plugin>
+      -->
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -102,10 +124,16 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>2.10.4</version>
-          <configuration>
+        <configuration>
           <show>private</show>
         </configuration>
-    </plugin>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.19</version>
+      </plugin>
 
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
@@ -118,7 +146,7 @@
               <goal>xjc</goal>
             </goals>
             <configuration>
-              <packageName>net.metricspace.app.crypto.jaxb</packageName>
+              <packageName>net.metricspace.app.crypto</packageName>
               <sources>
                 <source>${project.basedir}/src/main/resources/schemas/crypto.xsd</source>
               </sources>
@@ -138,6 +166,12 @@
         <configuration>
           <show>public</show>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-report-plugin</artifactId>
+        <version>2.19</version>
       </plugin>
     </plugins>
   </reporting>

@@ -16,7 +16,6 @@ import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 import org.bouncycastle.util.Arrays;
 
-import net.metricspace.app.crypto.jaxb.BoxPayload;
 import net.metricspace.app.data.Representable;
 
 /**
@@ -163,24 +162,29 @@ public class Box<T extends Representable>
     /**
      * Create an empty {@code Box}, containing nothing.
      */
-    public Box() {
-        this.mac = new byte[MAC_SIZE];
-    }
+    public Box() {}
 
     /**
      * Read in a {@code Box} from a specified length of the input stream.
      *
      * @param in Stream from which to read ciphertext.
-     * @param len Number of bytes of ciphertext to read.
+     * @param len Number of bytes of ciphertext to read (<em>not</em>
+     *            including the MAC).
      * @throws java.io.IOException If an IO error occurs.
+     * @throws IllegalArgumentException If {@code len <= 0}
      */
     public Box(final InputStream in,
                final int len)
-        throws IOException {
-        this();
-
-        this.ciphertext = new byte[len];
-        read(in);
+        throws IOException,
+               IllegalArgumentException {
+        if (0 < len) {
+            this.ciphertext = new byte[len];
+            this.mac = new byte[MAC_SIZE];
+            read(in);
+        } else {
+            throw new IllegalArgumentException("Invalid ciphertext length " +
+                                               len);
+        }
     }
 
     /**
@@ -191,7 +195,7 @@ public class Box<T extends Representable>
      */
     public Box(final InputStream in)
         throws IOException {
-        this(in, in.available());
+        this(in, in.available() - MAC_SIZE);
     }
 
     /**
@@ -209,7 +213,7 @@ public class Box<T extends Representable>
         throws IOException,
                IllegalStateException {
         // Check that the Box is empty
-        if (ciphertext == null) {
+        if (ciphertext == null && mac == null) {
             // Get the algorithms
             final Key key = new Key(rand);
             final Mac macalg = key.mac();
@@ -223,12 +227,15 @@ public class Box<T extends Representable>
             cipher.processBytes(plaintext, 0, len, ciphertext, 0);
             // Calculate the MAC code
             macalg.update(ciphertext, 0, len);
+            mac = new byte[MAC_SIZE];
             macalg.doFinal(mac, 0);
 
             return key;
-        } else {
+        } else if (ciphertext != null && mac != null) {
             // Throw an exception if the box already contains something
-            throw new IllegalStateException();
+            throw new IllegalStateException("Cannot lock a non-empty Box");
+        } else {
+            throw new IllegalStateException("Inconsistent Box state");
         }
     }
 
@@ -254,7 +261,7 @@ public class Box<T extends Representable>
                IOException,
                IllegalStateException {
         // Check that the box contains something
-        if (ciphertext != null) {
+        if (ciphertext != null && mac != null) {
             // First check the MAC
             final Mac macalg = key.mac();
             final int len = ciphertext.length;
@@ -280,9 +287,11 @@ public class Box<T extends Representable>
                 // If the MAC check fails, throw an exception
                 throw new IntegrityCheckException();
             }
-        } else {
+        } else if (ciphertext == null && mac == null) {
             // If the box is empty, throw an exception
-            throw new IllegalStateException();
+            throw new IllegalStateException("Cannot unlock an empty Box");
+        } else {
+            throw new IllegalStateException("Inconsistent Box state");
         }
     }
 
