@@ -2,7 +2,7 @@ package net.metricspace.app.data;
 
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
+import java.io.DataOutputStream;
 
 /**
  * Interface for things that can be serialized as raw binary.  This is
@@ -21,7 +21,7 @@ public interface Representable {
      * @param out The stream to which to write.
      * @throws java.io.IOException If an error occurs writing to {@code out}.
      */
-    public void write(final OutputStream out) throws IOException;
+    public void write(final DataOutputStream out) throws IOException;
 
     /**
      * Get a {@code byte} array representing this object.
@@ -31,8 +31,9 @@ public interface Representable {
      */
     public default byte[] bytes()
         throws IOException {
-        try(final ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
-            write(bytes);
+        try(final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            final DataOutputStream data = new DataOutputStream(bytes)) {
+            write(data);
 
             return bytes.toByteArray();
         }
