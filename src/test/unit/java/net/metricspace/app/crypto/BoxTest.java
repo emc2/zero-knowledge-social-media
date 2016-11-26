@@ -2,8 +2,8 @@ package net.metricspace.app.crypto;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
@@ -21,7 +21,7 @@ public class BoxTest {
             this.data = data;
         }
 
-        public static TestData read(final InputStream in) {
+        public static TestData read(final DataInputStream in) {
             try {
                 final byte[] data = new byte[in.available()];
 
@@ -47,18 +47,16 @@ public class BoxTest {
         }
 
         @Override
-        public void write(final OutputStream out)
+        public void write(final DataOutputStream out)
             throws IOException {
             out.write(data);
         }
     }
 
-    @Test
-    public void testLockUnlock()
+    private void doTestLockUnlock(final byte[] data)
         throws IOException,
                IntegrityCheckException {
-        final TestData expected =
-            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
+        final TestData expected = new TestData(data);
         final Box<TestData> box = new Box<>();
         final Box.Key key = box.lock(new SecureRandom(), expected);
         final TestData actual = box.unlock(key, TestData::read);
@@ -66,12 +64,25 @@ public class BoxTest {
         Assert.assertEquals(expected, actual);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
-    public void testBadUnlock()
+    @Test
+    public void testLockUnlock()
         throws IOException,
                IntegrityCheckException {
-        final TestData expected =
-            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
+        for(int i = 1; i < 256; i++) {
+            final byte[] data = new byte[i];
+
+            for(int j = 0; j < i; j++) {
+                data[j] = (byte)(j * i);
+            }
+
+            doTestLockUnlock(data);
+        }
+    }
+
+    private void doTestBadUnlock(final byte[] data)
+        throws IOException,
+               IntegrityCheckException {
+        final TestData expected = new TestData(data);
         final Box<TestData> box = new Box<>();
         final Box.Key key = box.lock(new SecureRandom(), expected);
         final Box<TestData> badbox = new Box<>();
@@ -80,28 +91,87 @@ public class BoxTest {
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
-    public void testBadLock()
+    public void testBadUnlock()
         throws IOException,
                IntegrityCheckException {
-        final TestData expected =
-            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
+        for(int i = 1; i < 256; i++) {
+            final byte[] data = new byte[i];
+
+            for(int j = 0; j < i; j++) {
+                data[j] = (byte)(j * i);
+            }
+
+            doTestBadUnlock(data);
+        }
+    }
+
+    private void doTestBadLock(final byte[] data)
+        throws IOException,
+               IntegrityCheckException {
+        final TestData expected = new TestData(data);
         final Box<TestData> box = new Box<>();
 
         box.lock(new SecureRandom(), expected);
         box.lock(new SecureRandom(), expected);
     }
 
-    @Test
-    public void testLockWriteReadUnlock()
+    @Test(expectedExceptions = IllegalStateException.class)
+    public void testBadLock()
         throws IOException,
                IntegrityCheckException {
-        final TestData expected =
-            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
+        for(int i = 1; i < 256; i++) {
+            final byte[] data = new byte[i];
+
+            for(int j = 0; j < i; j++) {
+                data[j] = (byte)(j * i);
+            }
+
+            doTestBadLock(data);
+        }
+    }
+
+    private void doTestLockWriteReadUnlock(final byte[] data)
+        throws IOException,
+               IntegrityCheckException {
+        final TestData expected = new TestData(data);
         final Box<TestData> box = new Box<>();
         final Box.Key key = box.lock(new SecureRandom(), expected);
         final byte[] boxbytes = box.bytes();
         final Box<TestData> newbox =
-            new Box<>(new ByteArrayInputStream(boxbytes));
+            new Box<>(new DataInputStream(new ByteArrayInputStream(boxbytes)));
+        final TestData actual = newbox.unlock(key, TestData::read);
+
+        Assert.assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testLockWriteReadUnlock()
+        throws IOException,
+               IntegrityCheckException {
+        for(int i = 1; i < 256; i++) {
+            final byte[] data = new byte[i];
+
+            for(int j = 0; j < i; j++) {
+                data[j] = (byte)(j * i);
+            }
+
+            doTestLockWriteReadUnlock(data);
+        }
+    }
+
+    private void doTestIntegrityCheck(final byte[] data)
+        throws IOException,
+               IntegrityCheckException {
+        final TestData expected = new TestData(data);
+        final Box<TestData> box = new Box<>();
+        final Box.Key key = box.lock(new SecureRandom(), expected);
+        final byte[] boxbytes = box.bytes();
+
+        // Corrupt one byte of the message
+        boxbytes[boxbytes.length - 1] ^= 0x10;
+
+        final Box<TestData> newbox =
+            new Box<>(new DataInputStream(new ByteArrayInputStream(boxbytes)));
         final TestData actual = newbox.unlock(key, TestData::read);
 
         Assert.assertEquals(expected, actual);
@@ -111,17 +181,28 @@ public class BoxTest {
     public void testIntegrityCheck()
         throws IOException,
                IntegrityCheckException {
-        final TestData expected =
-            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
+        for(int i = 1; i < 256; i++) {
+            final byte[] data = new byte[i];
+
+            for(int j = 0; j < i; j++) {
+                data[j] = (byte)(j * i);
+            }
+
+            doTestIntegrityCheck(data);
+        }
+    }
+
+    private void doTestLockWriteExtraReadUnlock(final byte[] data)
+        throws IOException,
+               IntegrityCheckException {
+        final TestData expected = new TestData(data);
         final Box<TestData> box = new Box<>();
         final Box.Key key = box.lock(new SecureRandom(), expected);
         final byte[] boxbytes = box.bytes();
-
-        // Corrupt one byte of the message
-        boxbytes[boxbytes.length - 1] ^= 0x10;
-
+        final byte[] extrabytes = Arrays.copyOf(boxbytes, boxbytes.length + 4);
         final Box<TestData> newbox =
-            new Box<>(new ByteArrayInputStream(boxbytes));
+            new Box<>(new DataInputStream(new ByteArrayInputStream(boxbytes)),
+                      box.ciphertextSize());
         final TestData actual = newbox.unlock(key, TestData::read);
 
         Assert.assertEquals(expected, actual);
@@ -131,16 +212,24 @@ public class BoxTest {
     public void testLockWriteExtraReadUnlock()
         throws IOException,
                IntegrityCheckException {
-        final TestData expected =
-            new TestData(new byte[] { 0x42, 0x21, 0x13, 0x69 });
-        final Box<TestData> box = new Box<>();
-        final Box.Key key = box.lock(new SecureRandom(), expected);
-        final byte[] boxbytes = box.bytes();
-        final byte[] extrabytes = Arrays.copyOf(boxbytes, boxbytes.length + 4);
-        final Box<TestData> newbox =
-            new Box<>(new ByteArrayInputStream(boxbytes),
-                      box.ciphertextSize());
-        final TestData actual = newbox.unlock(key, TestData::read);
+        for(int i = 1; i < 256; i++) {
+            final byte[] data = new byte[i];
+
+            for(int j = 0; j < i; j++) {
+                data[j] = (byte)(j * i);
+            }
+
+            doTestLockWriteExtraReadUnlock(data);
+        }
+    }
+
+    @Test
+    public void keyWriteRead()
+        throws IOException {
+        final Box.Key expected = new Box.Key(new SecureRandom());
+        final byte[] bytes = expected.bytes();
+        final Box.Key actual =
+            new Box.Key(new DataInputStream(new ByteArrayInputStream(bytes)));
 
         Assert.assertEquals(expected, actual);
     }

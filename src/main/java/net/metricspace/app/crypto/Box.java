@@ -2,8 +2,8 @@ package net.metricspace.app.crypto;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.security.SecureRandom;
 import java.util.function.Function;
 
@@ -28,7 +28,7 @@ public class Box<T extends Representable>
     extends BoxPayload
     implements Representable {
 
-    private static final int MAC_SIZE = 16;
+    private static final int MAC_SIZE = new Poly1305().getMacSize();
 
     /**
      * Key material for a {@code Box}.  These keys are <em>not</em> reusable
@@ -55,7 +55,7 @@ public class Box<T extends Representable>
          * @param in The stream from which to read.
          * @throws java.io.IOException If an IO error occurs.
          */
-        public Key(final InputStream in)
+        public Key(final DataInputStream in)
             throws IOException {
             read(in);
         }
@@ -73,7 +73,7 @@ public class Box<T extends Representable>
         /**
          * {@inheritDoc}
          */
-        void read(final InputStream in) throws IOException {
+        void read(final DataInputStream in) throws IOException {
             in.read(data);
         }
 
@@ -81,7 +81,7 @@ public class Box<T extends Representable>
          * {@inheritDoc}
          */
         @Override
-        public void write(final OutputStream out) throws IOException {
+        public void write(final DataOutputStream out) throws IOException {
             out.write(data);
         }
 
@@ -157,6 +157,19 @@ public class Box<T extends Representable>
 
             return out;
         }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (other instanceof Key) {
+                return equals((Key)other);
+            } else {
+                return false;
+            }
+        }
+
+        public boolean equals(final Key other) {
+            return java.util.Arrays.equals(data, other.data);
+        }
     }
 
     /**
@@ -173,7 +186,7 @@ public class Box<T extends Representable>
      * @throws java.io.IOException If an IO error occurs.
      * @throws IllegalArgumentException If {@code len <= 0}
      */
-    public Box(final InputStream in,
+    public Box(final DataInputStream in,
                final int len)
         throws IOException,
                IllegalArgumentException {
@@ -193,7 +206,7 @@ public class Box<T extends Representable>
      * @param in The stream from which to read.
      * @throws java.io.IOException If an IO error occurs.
      */
-    public Box(final InputStream in)
+    public Box(final DataInputStream in)
         throws IOException {
         this(in, in.available() - MAC_SIZE);
     }
@@ -256,7 +269,7 @@ public class Box<T extends Representable>
      * @throws java.lang.IllegalStateException If the {@code Box} is empty.
      */
     public T unlock(final Key key,
-                    Function<InputStream, T> read)
+                    Function<DataInputStream, T> read)
         throws IntegrityCheckException,
                IOException,
                IllegalStateException {
@@ -279,8 +292,10 @@ public class Box<T extends Representable>
                 cipher.processBytes(ciphertext, 0, len, plaintext, 0);
 
                 // Now convert the plaintext bytes back into an object
-                try(final ByteArrayInputStream in =
-                    new ByteArrayInputStream(plaintext)) {
+                try(final ByteArrayInputStream bytes =
+                    new ByteArrayInputStream(plaintext);
+                    final DataInputStream in =
+                    new DataInputStream(bytes)) {
                     return read.apply(in);
                 }
             } else {
@@ -329,7 +344,7 @@ public class Box<T extends Representable>
      * @param in The stream from which to read.
      * @throws java.io.IOException If an error occurs reading from {@code in}.
      */
-    protected void read(final InputStream in)
+    protected void read(final DataInputStream in)
         throws IOException {
         in.read(mac);
         in.read(ciphertext);
@@ -342,7 +357,7 @@ public class Box<T extends Representable>
      * @throws java.io.IOException If an error occurs writing to {@code out}.
      */
     @Override
-    public void write(final OutputStream out)
+    public void write(final DataOutputStream out)
         throws IOException {
         out.write(mac);
         out.write(ciphertext);
