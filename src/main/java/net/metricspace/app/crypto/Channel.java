@@ -326,7 +326,7 @@ abstract class Channel {
             this.key = key;
             this.pos = pos;
         } else {
-            throw new IllegalArgumentException("Invalid position " + size);
+            throw new IllegalArgumentException("Invalid position " + pos);
         }
     }
 
