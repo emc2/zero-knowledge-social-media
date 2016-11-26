@@ -254,7 +254,7 @@ public class Box<T extends Representable>
 
     /**
      * Unlock a {@code Box} using a {@code Key}.  This attempts to
-     * unlock a {@code Box} using the given {@code Key}.  If the wrong
+     * decrypt a {@code Box} using the given {@code Key}.  If the wrong
      * {@code Key} is given, or if the message was tampered with in
      * some way, then the message authentication will fail, resulting
      * in a {@code IntegrityCheckException} being thrown.
