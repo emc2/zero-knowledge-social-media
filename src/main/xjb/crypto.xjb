@@ -3,7 +3,7 @@
 <jxb:bindings version="1.0" xmlns:jxb="http://java.sun.com/xml/ns/jaxb"
               xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd">
-    <jxb:package name="net.metricspace.app.crypto.jaxb"/>
+    <jxb:package name="net.metricspace.app.crypto"/>
   </jxb:bindings>
 
   <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
@@ -12,7 +12,20 @@
   </jxb:bindings>
 
   <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
+                node="//xs:complexType [@name='Message']">
+    <jxb:class name="MessagePayload"
+               implClass="net.metricspace.app.crypto.Channel.Message"/>
+  </jxb:bindings>
+
+  <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
                 node="//xs:complexType [@name='Envelope']">
-    <jxb:class name="EnvelopePayload" implClass="net.metricspace.app.crypto.Envelope"/>
+    <jxb:class name="EnvelopePayload"
+               implClass="net.metricspace.app.crypto.Envelope"/>
+  </jxb:bindings>
+
+  <jxb:bindings schemaLocation="../resources/schemas/crypto.xsd"
+                node="//xs:complexType [@name='Attest']">
+    <jxb:class name="AttestPayload"
+               implClass="net.metricspace.app.crypto.Attest"/>
   </jxb:bindings>
 </jxb:bindings>
