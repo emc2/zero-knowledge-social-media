@@ -154,7 +154,7 @@ abstract class Channel {
             cipher.processBytes(data, MAC_BASE_KEY_OFFSET,
                                 MAC_KEY_SIZE, mackey, 0);
 
-            return new KeyParameter(mackey, MAC_BASE_KEY_OFFSET, MAC_KEY_SIZE);
+            return new KeyParameter(mackey, 0, MAC_KEY_SIZE);
         }
 
         /**
@@ -222,6 +222,19 @@ abstract class Channel {
         Mac mac(final long pos) {
             return mac(encryptCipher(pos));
         }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (other instanceof Key) {
+                return equals((Key)other);
+            } else {
+                return false;
+            }
+        }
+
+        public boolean equals(final Key other) {
+            return java.util.Arrays.equals(data, other.data);
+        }
     }
 
     /**
@@ -232,6 +245,8 @@ abstract class Channel {
     public static class Message<T extends Representable>
         extends MessagePayload
         implements Representable {
+
+        private static final int METADATA_SIZE = MAC_SIZE + 8;
 
         /**
          * Basic constructor.  Initializes a {@code Message} directly
@@ -288,7 +303,7 @@ abstract class Channel {
          */
         public Message(final DataInputStream in)
             throws IOException {
-            this(in, in.available() - MAC_SIZE);
+            this(in, in.available() - METADATA_SIZE);
         }
 
         /**
@@ -337,6 +352,24 @@ abstract class Channel {
      */
     protected Channel(final Key key) {
         this(key, 0);
+    }
+
+    /**
+     * Initialize a {@code Channel} with a randomly-generated {@code Key}.
+     *
+     * @param rand The random generator to use for key generation.
+     */
+    protected Channel(final SecureRandom rand) {
+        this(new Key(rand));
+    }
+
+    /**
+     * Get the {@code Key} for this {@code Channel}.
+     *
+     * @return The {@code Key} for this {@code Channel}.
+     */
+    public Key getKey() {
+        return key;
     }
 
     /**
